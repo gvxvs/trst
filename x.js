@@ -71,16 +71,16 @@ process.on('uncaughtException', function(e) {
 	if (e.code && ignoreCodes.includes(e.code) || e.name && ignoreNames.includes(e.name)) return !1;
 }).setMaxListeners(0);
  require("events").EventEmitter.defaultMaxListeners = 0;
- const sigalgs = [
+  const sigalgs = [
      "ecdsa_secp256r1_sha256",
-          "rsa_pss_rsae_sha256",
-          "rsa_pkcs1_sha256",
-          "ecdsa_secp384r1_sha384",
-          "rsa_pss_rsae_sha384",
-          "rsa_pkcs1_sha384",
-          "rsa_pss_rsae_sha512",
-          "rsa_pkcs1_sha512"
-] 
+     "rsa_pss_rsae_sha256",
+     "rsa_pkcs1_sha256",
+     "ecdsa_secp384r1_sha384",
+     "rsa_pss_rsae_sha384",
+     "rsa_pkcs1_sha384",
+     "rsa_pss_rsae_sha512",
+     "rsa_pkcs1_sha512"
+ ];
   let SignalsList = sigalgs.join(':')
 const ecdhCurve = "GREASE:X25519:x25519:P-256:P-384:P-521:X448";
 // Removed SSL_OP_NO_TLSv1_3 — we WANT TLS 1.3 support for modern fingerprinting
@@ -290,15 +290,16 @@ const generateHeaders = (browser) => {
     // Browser-specific sec-ch-ua data
     const chv = cv; 
     const chUA = {
-        brave:      {ua:`"Brave";v="${cv}", "Chromium";v="${cv}", "Not A;Brand";v="99"`,      full:`"Brave";v="${cv}.0.0.0", "Chromium";v="${cv}.0.0.0", "Not A;Brand";v="99.0.0.0"`,      plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
-        chrome:     {ua:`"Google Chrome";v="${cv}", "Chromium";v="${cv}", "Not.A/Brand";v="99"`, full:`"Google Chrome";v="${cv}.0.0.0", "Chromium";v="${cv}.0.0.0", "Not.A/Brand";v="99.0.0.0"`, plat:'"Windows"', pver:Math.random()<0.6?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
+        brave:      {ua:`"Brave";v="${cv}", "Chromium";v="${cv}", "Not=A?Brand";v="24"`,      full:`"Brave";v="${cv}.0.0.0", "Chromium";v="${cv}.0.0.0", "Not=A?Brand";v="24.0.0.0"`,      plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
+        chrome:     {ua:`"Google Chrome";v="${cv}", "Chromium";v="${cv}", "Not_A Brand";v="24"`, full:`"Google Chrome";v="${cv}.0.0.0", "Chromium";v="${cv}.0.0.0", "Not_A Brand";v="24.0.0.0"`, plat:'"Windows"', pver:Math.random()<0.6?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
         firefox:    {ua:`"Not A;Brand";v="99", "Mozilla Firefox";v="${cv}"`,                 full:`"Mozilla Firefox";v="${cv}.0.0.0", "Not A;Brand";v="99.0.0.0"`,                       plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
         safari:     {ua:`"Safari";v="${cv}", "Not A;Brand";v="99"`,                          full:`"Safari";v="${cv}.0.0.0", "Not A;Brand";v="99.0.0.0"`,                                 plat:'"macOS"',   pver:`"15.${getRandomInt(0,5)}"`,              arch:'"arm64"'},
-        mobile:     {ua:`"Google Chrome";v="${cv}", "Not(A:Brand";v="99"`,                   full:`"Google Chrome";v="${cv}.0.0.0", "Not(A:Brand";v="99.0.0.0"`,                          plat:'"Android"', pver:`"${getRandomInt(13,15)}.0"`,              arch:'"arm64"'},
-        opera:      {ua:`"Opera";v="${cv}", "Chromium";v="${chv}", "Not A;Brand";v="99"`,     full:`"Opera";v="${cv}.0.0.0", "Chromium";v="${chv}.0.0.0", "Not A;Brand";v="99.0.0.0"`,    plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
-        operagx:    {ua:`"Opera GX";v="${cv}", "Chromium";v="${chv}", "Not.A/Brand";v="99"`, full:`"Opera GX";v="${cv}.0.0.0", "Chromium";v="${chv}.0.0.0", "Not.A/Brand";v="99.0.0.0"`, plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
+        mobile:     {ua:`"Google Chrome";v="${cv}", "Chromium";v="${cv}", "Not=A?Brand";v="24"`,full:`"Google Chrome";v="${cv}.0.0.0", "Chromium";v="${cv}.0.0.0", "Not=A?Brand";v="24.0.0.0"`, plat:'"Android"', pver:`"${getRandomInt(13,15)}.0"`,              arch:'"arm64"'},
+        opera:      {ua:`"Opera";v="${cv}", "Chromium";v="${chv}", "Not_A Brand";v="24"`,     full:`"Opera";v="${cv}.0.0.0", "Chromium";v="${chv}.0.0.0", "Not_A Brand";v="24.0.0.0"`,    plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
+        operagx:    {ua:`"Opera GX";v="${cv}", "Chromium";v="${chv}", "Not_A Brand";v="24"`, full:`"Opera GX";v="${cv}.0.0.0", "Chromium";v="${chv}.0.0.0", "Not_A Brand";v="24.0.0.0"`, plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
         duckduckgo: {ua:`"DuckDuckGo";v="${cv}", "Chromium";v="${chv}", "Not.A/Brand";v="8"`,full:`"DuckDuckGo";v="${cv}.0.0.0", "Chromium";v="${chv}.0.0.0", "Not.A/Brand";v="8.0.0.0"`,plat:'"Windows"', pver:Math.random()<0.5?'"10.0.0"':'"11.0.0"', arch:'"x86"'},
     }[browser];
+
 
     const isMobile = browser === 'mobile';
     const ua = {
@@ -346,9 +347,10 @@ const generateHeaders = (browser) => {
             'sec-ch-ua':                   chUA.ua,
             'sec-ch-ua-mobile':            isMobile ? '?1' : '?0',
             'sec-ch-ua-platform':          chUA.plat,
+            'upgrade-insecure-requests':   '1',
             'user-agent':                  ua,
             'accept':                      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'sec-fetch-site':              Math.random() < 0.8 ? 'none' : 'same-origin',
+            'sec-fetch-site':              'none',
             'sec-fetch-mode':              'navigate',
             'sec-fetch-user':              '?1',
             'sec-fetch-dest':              'document',
@@ -387,24 +389,27 @@ const generateHeaders = (browser) => {
         `__cf_bm=${randstr(40)}`,
         `cf_clearance=${randstr(45)}`,
         `_ga=GA1.1.${getRandomInt(100000000, 999999999)}.${Math.floor(Date.now()/1000)}`,
+        `_gid=GA1.1.${getRandomInt(100000000, 999999999)}.${Math.floor(Date.now()/1000)}`,
         `session_id=${generateRandomString(32)}`
     ];
 
     // Combine in correct order
     const finalHeaders = Object.assign({}, base, selectedHeaders, {
-        'referer': Math.random() < 0.2 ? undefined : randomElement(refs),
-        'cookie': cookies.slice(0, getRandomInt(1, 4)).join('; '),
-        'x-request-id': generateRandomString(32),
+        'cookie': cookies.slice(0, getRandomInt(2, 5)).join('; '),
     });
 
-    // Simulasi Human Behavior tetap di Target Path
-    if (Math.random() < 0.15) {
-        // Kadang browser minta target yang sama tapi dianggap sebagai fetch/script 
-        // (misal lewat dynamic import atau prefetch)
+    // Simulasi Fetch Behavior di Target Path (Tanpa merubah path)
+    if (Math.random() < 0.1) {
         finalHeaders['accept'] = '*/*';
         finalHeaders['sec-fetch-dest'] = 'empty';
         finalHeaders['sec-fetch-mode'] = 'cors';
+        finalHeaders['sec-fetch-site'] = 'same-origin';
+        delete finalHeaders['upgrade-insecure-requests'];
     }
+
+    return finalHeaders;
+};
+
 
 
     return finalHeaders;
