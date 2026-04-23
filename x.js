@@ -401,13 +401,15 @@ const generateHeaders = (browser) => {
         'x-request-id': generateRandomString(32),
     });
 
-    // Simulasi Static Asset (JS/CSS/IMG) untuk Human Score
+    // Simulasi Human Behavior tetap di Target Path
     if (Math.random() < 0.15) {
-        const assets = ['.js', '.css', '.png', '.jpg', '.svg', '.woff2'];
-        finalHeaders[':path'] = `/static/${randstr(8)}${randomElement(assets)}?v=${getRandomInt(1,999)}`;
+        // Kadang browser minta target yang sama tapi dianggap sebagai fetch/script 
+        // (misal lewat dynamic import atau prefetch)
         finalHeaders['accept'] = '*/*';
-        finalHeaders['sec-fetch-dest'] = 'script';
+        finalHeaders['sec-fetch-dest'] = 'empty';
+        finalHeaders['sec-fetch-mode'] = 'cors';
     }
+
 
     return finalHeaders;
 };
