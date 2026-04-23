@@ -411,26 +411,12 @@ const generateHeaders = (browser) => {
 
 
 
-const browser = getRandomBrowser();
-const headers = generateHeaders(browser);
-let h2_config;
-const h2settings = h2Settings(browser);
-h2_config = transformSettings(Object.entries(h2settings));
-function getWeightedRandom() {
-    const randomValue = Math.random() * Math.random();
-    return randomValue < 0.25;
-}
-const randomString = randstr(10);
+    const browser = getRandomBrowser();
+    let h2_config;
+    const h2settings = h2Settings(browser);
+    h2_config = transformSettings(Object.entries(h2settings));
 
-                        const headers4 = {
-                            ...(getWeightedRandom() && Math.random() < 0.4 && { 'x-forwarded-for': `${randomString}:${randomString}` }),
-                            ...(getWeightedRandom() && { 'referer': `https://${randomString}.com` })
-                        }
-
-                        let allHeaders = Object.assign({}, headers, headers4);
-
-
-const proxyOptions = {
+    const proxyOptions = {
     host: parsedProxy[0],
     port: ~~parsedProxy[1],
     address: `${parsedTarget.host}:443`,
