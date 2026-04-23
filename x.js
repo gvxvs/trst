@@ -97,8 +97,6 @@ const secureOptions =
     (crypto.constants.SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION || 0);
  if (process.argv.length < 7){console.log(`Usage: node xran-bypass [host] [time] [rps] [thread] [proxyfile]`); process.exit();}
  const secureProtocol = "TLS_method";
- const headers = {};
- 
  const secureContextOptions = {
      ciphers: ciphers,
      sigalgs: SignalsList,
@@ -411,9 +409,6 @@ const generateHeaders = (browser) => {
 };
 
 
-
-    return finalHeaders;
-};
 
 
 const browser = getRandomBrowser();
